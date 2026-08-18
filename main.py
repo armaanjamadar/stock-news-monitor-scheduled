@@ -4,7 +4,7 @@ import smtplib
 import requests_cache
 from dotenv import load_dotenv
 
-requests_cache.install_cache("cache")
+requests_cache.install_cache("cache", expiry_after=300)
 load_dotenv()
 
 stock_price_api_key = os.getenv("STOCK_PRICE_API_KEY")
