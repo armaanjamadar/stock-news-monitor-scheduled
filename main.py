@@ -1,38 +1,58 @@
-# To run and test the code you need to update 4 places:
-# 1. Change MY_EMAIL/MY_PASSWORD to your own details.
-# 2. Go to your email provider and make it allow less secure apps.
-# 3. Update the SMTP ADDRESS to match your email provider.
-# 4. Update birthdays.csv to contain today's month and day.
-# See the solution video in the 100 Days of Python Course for explainations.
-
-
-from datetime import datetime
-import pandas
-import random
-import smtplib
 import os
+import requests
+import smtplib
+import requests_cache
+from dotenv import load_dotenv
 
-# import os and use it to get the Github repository secrets
-MY_EMAIL = os.environ.get("MY_EMAIL")
-MY_PASSWORD = os.environ.get("MY_PASSWORD")
+requests_cache.install_cache("cache")
+load_dotenv()
 
-today = datetime.now()
-today_tuple = (today.month, today.day)
+stock_price_api_key = os.getenv("STOCK_PRICE_API_KEY")
+news_api_key = os.getenv("NEWS_API_KEY")
+my_email = os.getenv("MY_EMAIL")
+my_password = os.getenv("MY_PASSWORD")
 
-data = pandas.read_csv("birthdays.csv")
-birthdays_dict = {(data_row["month"], data_row["day"])                  : data_row for (index, data_row) in data.iterrows()}
-if today_tuple in birthdays_dict:
-    birthday_person = birthdays_dict[today_tuple]
-    file_path = f"letter_templates/letter_{random.randint(1, 3)}.txt"
-    with open(file_path) as letter_file:
-        contents = letter_file.read()
-        contents = contents.replace("[NAME]", birthday_person["name"])
+stock_price_params = {
+    "function": "TIME_SERIES_DAILY",
+    "symbol": "TSLA",
+    "outputsize": "compact",
+    "datatype": "json",
+    "apikey": stock_price_api_key,
+}
 
-    with smtplib.SMTP("YOUR EMAIL PROVIDER SMTP SERVER ADDRESS") as connection:
-        connection.starttls()
-        connection.login(MY_EMAIL, MY_PASSWORD)
-        connection.sendmail(
-            from_addr=MY_EMAIL,
-            to_addrs=birthday_person["email"],
-            msg=f"Subject:Happy Birthday!\n\n{contents}"
-        )
+response = requests.get("https://www.alphavantage.co/query", params=stock_price_params)
+response.raise_for_status()
+data = response.json()["Time Series (Daily)"]
+last_two_days = [value for key, value in data.items()][:2]
+closing_price_of_yesterday = float(last_two_days[0]["4. close"])
+closing_price_of_day_before_yesterday = float(last_two_days[1]["4. close"])
+
+fluctuation = round(closing_price_of_yesterday - closing_price_of_day_before_yesterday)
+fluctuation_percentage = round((fluctuation / closing_price_of_day_before_yesterday) * 100)
+signal = "🔺" if fluctuation_percentage > 0 else "🔻"
+
+news_params = {
+    "apiKey": news_api_key,
+    "q": "TSLA",
+    "language": "en",
+    "sortBy": "publishedAt",
+    "pageSize": 1,
+}
+
+response = requests.get("https://newsapi.org/v2/everything", params=news_params)
+response.raise_for_status()
+data = response.json()
+latest_article = data["articles"][0]
+article_title = latest_article["title"]
+article_description = latest_article["description"]
+article_url = latest_article["url"]
+
+with smtplib.SMTP("smtp.gmail.com", port=587) as connection:
+    connection.starttls()
+    connection.login(user=my_email, password=my_password)
+    connection.sendmail(
+        from_addr=my_email,
+        to_addrs="armaanjamadarx@gmail.com",
+        msg=f"Subject: TSLA {signal} by {fluctuation_percentage}%"
+        f"\n\n{article_title}\n{article_description}\nRead more...\n{article_url}".encode(),
+    )
