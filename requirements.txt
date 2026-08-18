@@ -1,4 +1,3 @@
-pandas
 requests
 requests-cache
 python-dotenv
