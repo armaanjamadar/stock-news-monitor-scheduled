@@ -54,5 +54,5 @@ with smtplib.SMTP("smtp.gmail.com", port=587) as connection:
         from_addr=my_email,
         to_addrs="armaanjamadarx@gmail.com",
         msg=f"Subject: TSLA {signal} by {fluctuation_percentage}%"
-        f"\n\nHeadline: {article_title}\nBrief: {article_description}\nRead more...\n{article_url}".encode(),
+        f"\n\nHeadline: {article_title}\n\nBrief: {article_description}\nRead more...\n{article_url}".encode(),
     )
